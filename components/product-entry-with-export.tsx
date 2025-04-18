@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface Product {
   id: string
   name: string
+  sku: string // Added SKU field
   upcCode: string
   unitType: string
   quantity: number
@@ -46,6 +47,7 @@ interface TicketRange {
 export default function ProductEntryWithExport() {
   // State for the form inputs
   const [productName, setProductName] = useState("")
+  const [productSku, setProductSku] = useState("") // Added SKU state
   const [upcCode, setUpcCode] = useState("")
   const [unitType, setUnitType] = useState("EACH")
   const [quantity, setQuantity] = useState("")
@@ -128,6 +130,7 @@ export default function ProductEntryWithExport() {
     const newProduct: Product = {
       id: Date.now().toString(),
       name: productName.trim(),
+      sku: productSku.trim(), // Added SKU
       upcCode: upcCode.trim(),
       unitType: unitType,
       quantity: quantityValue,
@@ -193,6 +196,7 @@ export default function ProductEntryWithExport() {
   // Function to reset form
   const resetForm = () => {
     setProductName("")
+    setProductSku("") // Reset SKU
     setUpcCode("")
     setUnitType("EACH")
     setQuantity("")
@@ -253,10 +257,15 @@ export default function ProductEntryWithExport() {
   const generateDPLContent = () => {
     let content = ""
 
-    // Data rows
-    products.forEach((product) => {
-      content += `${product.upcCode},${product.name},${product.unitType},${product.quantity},${product.totalCost.toFixed(2)},${product.ticketValue},${product.itemsPerUnit},${product.unitCost.toFixed(2)},${product.type}\n`
-    })
+    // Data rows - ensure all products are included
+    if (products.length > 0) {
+      products.forEach((product) => {
+        // Include SKU in the product name if it exists
+        const productNameWithSku = product.sku ? `${product.sku}-${product.name}` : product.name
+
+        content += `${product.upcCode},${productNameWithSku},${product.unitType},${product.quantity},${product.totalCost.toFixed(2)},${product.ticketValue},${product.itemsPerUnit},${product.unitCost.toFixed(2)},${product.type}\n`
+      })
+    }
 
     return content
   }
@@ -282,6 +291,8 @@ export default function ProductEntryWithExport() {
     }
 
     const content = generateDPLContent()
+
+    // Create blob and download
     const blob = new Blob([content], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
 
@@ -289,6 +300,9 @@ export default function ProductEntryWithExport() {
       downloadLinkRef.current.href = url
       downloadLinkRef.current.download = `outta_boundz_products_${new Date().toISOString().split("T")[0]}.dpl`
       downloadLinkRef.current.click()
+
+      // Clean up
+      URL.revokeObjectURL(url)
     }
   }
 
@@ -336,7 +350,7 @@ export default function ProductEntryWithExport() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="upc-code">UPC Code</Label>
                 <Input
@@ -349,10 +363,20 @@ export default function ProductEntryWithExport() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="product-sku">Product SKU</Label>
+                <Input
+                  id="product-sku"
+                  placeholder="e.g. GLOPOP"
+                  value={productSku}
+                  onChange={(e) => setProductSku(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="product-name">Product Name</Label>
                 <Input
                   id="product-name"
-                  placeholder="e.g. GLOPOP-Glow-in-the-Dark Ping Pong Popper"
+                  placeholder="e.g. Glow-in-the-Dark Ping Pong Popper"
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   required
@@ -519,6 +543,7 @@ export default function ProductEntryWithExport() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>UPC Code</TableHead>
+                    <TableHead>SKU</TableHead>
                     <TableHead>Product Name</TableHead>
                     <TableHead>Unit Type</TableHead>
                     <TableHead>Qty</TableHead>
@@ -534,6 +559,7 @@ export default function ProductEntryWithExport() {
                   {products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>{product.upcCode}</TableCell>
+                      <TableCell>{product.sku}</TableCell>
                       <TableCell>{product.name}</TableCell>
                       <TableCell>{product.unitType}</TableCell>
                       <TableCell>{product.quantity}</TableCell>
@@ -583,6 +609,17 @@ export default function ProductEntryWithExport() {
                   id="edit-upc-code"
                   value={editingProduct.upcCode}
                   onChange={(e) => setEditingProduct({ ...editingProduct, upcCode: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-product-sku" className="text-right">
+                  Product SKU
+                </Label>
+                <Input
+                  id="edit-product-sku"
+                  value={editingProduct.sku}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
                   className="col-span-3"
                 />
               </div>
