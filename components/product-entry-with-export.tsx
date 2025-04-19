@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
-import { Download, Eye, Trash2, Edit2 } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Download, Eye, Trash2, Edit2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -82,6 +82,38 @@ export default function ProductEntryWithExport() {
     { min: 7500, max: 15000, interval: 1000 },
     { min: 15000, max: Number.POSITIVE_INFINITY, interval: 2500 },
   ]
+
+  // Add localStorage key constant
+  const STORAGE_KEY = "outtaBoundzProductList"
+
+  // Add useEffect for loading data from localStorage on component mount
+  useEffect(() => {
+    // Load saved products from localStorage when component mounts
+    const savedProducts = localStorage.getItem(STORAGE_KEY)
+    if (savedProducts) {
+      try {
+        const parsedProducts = JSON.parse(savedProducts)
+        setProducts(parsedProducts)
+        setAlert("Loaded saved products from your browser")
+        setTimeout(() => setAlert(null), 3000)
+      } catch (error) {
+        console.error("Error loading saved products:", error)
+      }
+    }
+  }, [])
+
+  // Add useEffect for saving data to localStorage whenever products change
+  useEffect(() => {
+    // Save products to localStorage whenever they change
+    if (products.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+    }
+  }, [products])
+
+  // Add a function to clear localStorage
+  const clearStoredProducts = () => {
+    localStorage.removeItem(STORAGE_KEY)
+  }
 
   // Function to calculate raw ticket amount
   const calculateRawTicketAmount = (cost: number): number => {
@@ -304,6 +336,33 @@ export default function ProductEntryWithExport() {
       // Clean up
       URL.revokeObjectURL(url)
     }
+
+    const downloadBackup = () => {
+      if (products.length === 0) {
+        setAlert("No products to backup")
+        setTimeout(() => setAlert(null), 3000)
+        return
+      }
+
+      // Create a JSON backup file
+      const jsonContent = JSON.stringify(products, null, 2)
+      const blob = new Blob([jsonContent], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+
+      // Create a temporary link and trigger download
+      const tempLink = document.createElement("a")
+      tempLink.href = url
+      tempLink.download = `outta_boundz_backup_${new Date().toISOString().split("T")[0]}.json`
+      document.body.appendChild(tempLink)
+      tempLink.click()
+      document.body.removeChild(tempLink)
+
+      // Clean up
+      URL.revokeObjectURL(url)
+
+      setAlert("Backup file downloaded")
+      setTimeout(() => setAlert(null), 3000)
+    }
   }
 
   // Function to handle unit cost calculation when total cost or items per unit changes
@@ -333,6 +392,85 @@ export default function ProductEntryWithExport() {
         setUnitCost(calculatedUnitCost.toFixed(2))
       }
     }
+  }
+
+  // Add a function to import products from a backup file
+  const importFromBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string
+        const importedProducts = JSON.parse(content) as Product[]
+
+        // Confirm before overwriting or merging
+        if (products.length > 0) {
+          if (window.confirm("Do you want to merge with existing products? Click Cancel to replace all products.")) {
+            // Merge with existing products
+            setProducts([...products, ...importedProducts])
+            setAlert(`Imported and merged ${importedProducts.length} products`)
+          } else {
+            // Replace existing products
+            setProducts(importedProducts)
+            setAlert(`Replaced with ${importedProducts.length} imported products`)
+          }
+        } else {
+          // No existing products, just import
+          setProducts(importedProducts)
+          setAlert(`Imported ${importedProducts.length} products`)
+        }
+
+        setTimeout(() => setAlert(null), 3000)
+
+        // Reset the file input
+        event.target.value = ""
+      } catch (error) {
+        console.error("Error importing products:", error)
+        setAlert("Error importing products. Please check the file format.")
+        setTimeout(() => setAlert(null), 3000)
+      }
+    }
+
+    reader.readAsText(file)
+  }
+
+  // Update the clearAll function (add this function if it doesn't exist)
+  const clearAll = () => {
+    if (window.confirm("Are you sure you want to clear all products? This action cannot be undone.")) {
+      setProducts([])
+      clearStoredProducts()
+      setAlert("All products cleared")
+      setTimeout(() => setAlert(null), 3000)
+    }
+  }
+
+  const downloadBackup = () => {
+    if (products.length === 0) {
+      setAlert("No products to backup")
+      setTimeout(() => setAlert(null), 3000)
+      return
+    }
+
+    // Create a JSON backup file
+    const jsonContent = JSON.stringify(products, null, 2)
+    const blob = new Blob([jsonContent], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+
+    // Create a temporary link and trigger download
+    const tempLink = document.createElement("a")
+    tempLink.href = url
+    tempLink.download = `outta_boundz_backup_${new Date().toISOString().split("T")[0]}.json`
+    document.body.appendChild(tempLink)
+    tempLink.click()
+    document.body.removeChild(tempLink)
+
+    // Clean up
+    URL.revokeObjectURL(url)
+
+    setAlert("Backup file downloaded")
+    setTimeout(() => setAlert(null), 3000)
   }
 
   return (
@@ -490,7 +628,7 @@ export default function ProductEntryWithExport() {
             <CardTitle>Product List for DPL Export</CardTitle>
             <CardDescription>Manage your products and export to DPL</CardDescription>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <Dialog>
               <DialogTrigger asChild>
                 <Button
@@ -528,6 +666,31 @@ export default function ProductEntryWithExport() {
               disabled={products.length === 0}
             >
               <Download className="mr-2 h-4 w-4" /> Download DPL
+            </Button>
+
+            <Button
+              variant="outline"
+              className="flex items-center"
+              onClick={downloadBackup}
+              disabled={products.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" /> Backup JSON
+            </Button>
+
+            <div className="relative">
+              <Button variant="outline" className="flex items-center">
+                <Upload className="mr-2 h-4 w-4" /> Import Backup
+              </Button>
+              <input
+                type="file"
+                accept=".json"
+                onChange={importFromBackup}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </div>
+
+            <Button variant="outline" className="text-red-500" onClick={clearAll} disabled={products.length === 0}>
+              Clear All
             </Button>
 
             {/* Hidden download link */}
@@ -757,6 +920,28 @@ export default function ProductEntryWithExport() {
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  )
+}
+
+interface FileInputProps {
+  setAlert: React.Dispatch<React.SetStateAction<string | null>>
+  importFromBackup: (event: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+const FileInput: React.FC<FileInputProps> = ({ setAlert, importFromBackup }) => {
+  return (
+    <div className="flex items-center">
+      <Label
+        htmlFor="import-backup"
+        className="mr-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+      >
+        Import
+      </Label>
+      <Input type="file" id="import-backup" className="hidden" accept=".json" onChange={importFromBackup} />
+      <Button variant="outline" size="sm" asChild>
+        <label htmlFor="import-backup">Upload Backup</label>
+      </Button>
     </div>
   )
 }
