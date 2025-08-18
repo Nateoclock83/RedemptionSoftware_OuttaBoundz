@@ -35,6 +35,7 @@ interface Product {
   itemsPerUnit: number
   unitCost: number
   type: string
+  isManualTicket: boolean // Add this flag to track if ticket value was manually set
 }
 
 // Define the ticket range intervals
@@ -171,6 +172,7 @@ export default function ProductEntryWithExport() {
       itemsPerUnit: itemsPerUnitValue,
       unitCost: unitCostValue,
       type: type,
+      isManualTicket: false, // Default to automatic calculation
     }
 
     // Add to products list
@@ -473,6 +475,43 @@ export default function ProductEntryWithExport() {
     setTimeout(() => setAlert(null), 3000)
   }
 
+  // Function to handle manual ticket value changes
+  const handleManualTicketChange = (value: string) => {
+    if (!editingProduct) return
+
+    const numValue = Number(value)
+    if (!isNaN(numValue) && numValue >= 0) {
+      setEditingProduct({
+        ...editingProduct,
+        ticketValue: numValue,
+        isManualTicket: true,
+      })
+    }
+  }
+
+  // Function to toggle between automatic and manual ticket values
+  const toggleTicketValueMode = () => {
+    if (!editingProduct) return
+
+    if (editingProduct.isManualTicket) {
+      // Switch back to automatic calculation
+      const rawTicketAmount = calculateRawTicketAmount(editingProduct.unitCost)
+      const finalTicketAmount = roundUpToInterval(rawTicketAmount)
+
+      setEditingProduct({
+        ...editingProduct,
+        ticketValue: finalTicketAmount,
+        isManualTicket: false,
+      })
+    } else {
+      // Keep current value but mark as manual
+      setEditingProduct({
+        ...editingProduct,
+        isManualTicket: true,
+      })
+    }
+  }
+
   return (
     <div className="grid gap-8">
       {alert && (
@@ -727,7 +766,10 @@ export default function ProductEntryWithExport() {
                       <TableCell>{product.unitType}</TableCell>
                       <TableCell>{product.quantity}</TableCell>
                       <TableCell>${product.totalCost.toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">{product.ticketValue}</TableCell>
+                      <TableCell className="font-medium">
+                        {product.ticketValue}
+                        {product.isManualTicket && <span className="ml-1 text-xs text-amber-600">*</span>}
+                      </TableCell>
                       <TableCell>{product.itemsPerUnit}</TableCell>
                       <TableCell>${product.unitCost.toFixed(2)}</TableCell>
                       <TableCell>{product.type}</TableCell>
@@ -751,7 +793,12 @@ export default function ProductEntryWithExport() {
           )}
         </CardContent>
         <CardFooter className="flex justify-between">
-          <p className="text-sm text-gray-500">Total Items: {products.length}</p>
+          <div>
+            <p className="text-sm text-gray-500">Total Items: {products.length}</p>
+            {products.some((p) => p.isManualTicket) && (
+              <p className="text-xs text-amber-600 mt-1">* Manually adjusted ticket value</p>
+            )}
+          </div>
         </CardFooter>
       </Card>
 
@@ -905,9 +952,44 @@ export default function ProductEntryWithExport() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Ticket Value</Label>
-                <div className="col-span-3 font-medium">
-                  {roundUpToInterval(calculateRawTicketAmount(editingProduct.unitCost))}
-                  <span className="text-sm text-gray-500 ml-2">(Calculated automatically)</span>
+                <div className="col-span-3">
+                  {editingProduct.isManualTicket ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="edit-ticket-value"
+                        type="number"
+                        min="0"
+                        step="5"
+                        value={editingProduct.ticketValue}
+                        onChange={(e) => handleManualTicketChange(e.target.value)}
+                        className="w-32"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleTicketValueMode}
+                        title="Switch to automatic calculation"
+                      >
+                        Auto
+                      </Button>
+                      <span className="text-amber-600 text-sm ml-2">(Manual value)</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {roundUpToInterval(calculateRawTicketAmount(editingProduct.unitCost))}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleTicketValueMode}
+                        title="Switch to manual entry"
+                      >
+                        Manual
+                      </Button>
+                      <span className="text-green-600 text-sm ml-2">(Auto calculated)</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

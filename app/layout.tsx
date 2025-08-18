@@ -1,10 +1,15 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import Navigation from "@/components/layout/navigation"
 
-export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata = {
+  title: "Outta Boundz - Product Management System",
+  description: "Manage products, calculate ticket values, and export DPL files",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -14,7 +19,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <Navigation />
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }
