@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Download, Eye, Trash2, Edit2, Upload } from "lucide-react"
+import { Download, Eye, Trash2, Edit2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -268,11 +268,15 @@ export default function ProductEntryWithExport() {
       return
     }
 
-    // Recalculate ticket value
-    const rawTicketAmount = calculateRawTicketAmount(editingProduct.unitCost)
-    const finalTicketAmount = roundUpToInterval(rawTicketAmount)
+    let finalTicketAmount = editingProduct.ticketValue
 
-    // Update product in list
+    if (!editingProduct.isManualTicket) {
+      // Recalculate ticket value only for automatic mode
+      const rawTicketAmount = calculateRawTicketAmount(editingProduct.unitCost)
+      finalTicketAmount = roundUpToInterval(rawTicketAmount)
+    }
+
+    // Update product in list, preserving the manual ticket flag
     setProducts(
       products.map((product) =>
         product.id === editingProduct.id ? { ...editingProduct, ticketValue: finalTicketAmount } : product,
@@ -337,33 +341,6 @@ export default function ProductEntryWithExport() {
 
       // Clean up
       URL.revokeObjectURL(url)
-    }
-
-    const downloadBackup = () => {
-      if (products.length === 0) {
-        setAlert("No products to backup")
-        setTimeout(() => setAlert(null), 3000)
-        return
-      }
-
-      // Create a JSON backup file
-      const jsonContent = JSON.stringify(products, null, 2)
-      const blob = new Blob([jsonContent], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-
-      // Create a temporary link and trigger download
-      const tempLink = document.createElement("a")
-      tempLink.href = url
-      tempLink.download = `outta_boundz_backup_${new Date().toISOString().split("T")[0]}.json`
-      document.body.appendChild(tempLink)
-      tempLink.click()
-      document.body.removeChild(tempLink)
-
-      // Clean up
-      URL.revokeObjectURL(url)
-
-      setAlert("Backup file downloaded")
-      setTimeout(() => setAlert(null), 3000)
     }
   }
 
@@ -446,33 +423,6 @@ export default function ProductEntryWithExport() {
       setAlert("All products cleared")
       setTimeout(() => setAlert(null), 3000)
     }
-  }
-
-  const downloadBackup = () => {
-    if (products.length === 0) {
-      setAlert("No products to backup")
-      setTimeout(() => setAlert(null), 3000)
-      return
-    }
-
-    // Create a JSON backup file
-    const jsonContent = JSON.stringify(products, null, 2)
-    const blob = new Blob([jsonContent], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-
-    // Create a temporary link and trigger download
-    const tempLink = document.createElement("a")
-    tempLink.href = url
-    tempLink.download = `outta_boundz_backup_${new Date().toISOString().split("T")[0]}.json`
-    document.body.appendChild(tempLink)
-    tempLink.click()
-    document.body.removeChild(tempLink)
-
-    // Clean up
-    URL.revokeObjectURL(url)
-
-    setAlert("Backup file downloaded")
-    setTimeout(() => setAlert(null), 3000)
   }
 
   // Function to handle manual ticket value changes
@@ -672,7 +622,7 @@ export default function ProductEntryWithExport() {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex items-center"
+                  className="flex items-center bg-transparent"
                   onClick={previewDPL}
                   disabled={products.length === 0}
                 >
@@ -709,26 +659,10 @@ export default function ProductEntryWithExport() {
 
             <Button
               variant="outline"
-              className="flex items-center"
-              onClick={downloadBackup}
+              className="flex items-center bg-transparent"
+              onClick={() => setProducts([])}
               disabled={products.length === 0}
             >
-              <Download className="mr-2 h-4 w-4" /> Backup JSON
-            </Button>
-
-            <div className="relative">
-              <Button variant="outline" className="flex items-center">
-                <Upload className="mr-2 h-4 w-4" /> Import Backup
-              </Button>
-              <input
-                type="file"
-                accept=".json"
-                onChange={importFromBackup}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-            </div>
-
-            <Button variant="outline" className="text-red-500" onClick={clearAll} disabled={products.length === 0}>
               Clear All
             </Button>
 
